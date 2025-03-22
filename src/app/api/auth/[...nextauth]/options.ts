@@ -3,11 +3,18 @@ import GitHubProvider from 'next-auth/providers/github'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { GithubProfile } from 'next-auth/providers/github'
 
+// Mock user database (Replace this with DB queries)
+const users = [
+    { id: "1", name: "Dave", password: "nextauth", role: "manager" },
+    { id: "2", name: "Alice", password: "securepass", role: "admin" },
+    { id: "3", name: "Bob", password: "userpass", role: "user" }
+];
+
 export const options: NextAuthOptions = {
     providers: [
         GitHubProvider({
             profile(profile: GithubProfile) {
-                //console.log(profile)
+                console.log(profile)
                 return {
                     ...profile,
                     role: profile.role ?? "user",
@@ -21,41 +28,33 @@ export const options: NextAuthOptions = {
         CredentialsProvider({
             name: "Credentials",
             credentials: {
-                username: {
-                    label: "Username:",
-                    type: "text",
-                    placeholder: "your-cool-username"
-                },
-                password: {
-                    label: "Password:",
-                    type: "password",
-                    placeholder: "your-awesome-password"
-                }
+                username: { label: "Username:", type: "text", placeholder: "your-username" },
+                password: { label: "Password:", type: "password", placeholder: "your-password" }
             },
             async authorize(credentials) {
-                // This is where you need to retrieve user data 
-                // to verify with credentials
-                // Docs: https://next-auth.js.org/configuration/providers/credentials
-                const user = { id: "42", name: "Dave", password: "nextauth", role: "manager" }
-
-                if (credentials?.username === user.name && credentials?.password === user.password) {
-                    return user
-                } else {
-                    return null
-                }
+                const user = users.find(u => u.name === credentials?.username && u.password === credentials?.password);
+                if (user) return user;
+                return null;
             }
         })
     ],
     callbacks: {
-        // Ref: https://authjs.dev/guides/basics/role-based-access-control#persisting-the-role
         async jwt({ token, user }) {
-            if (user) token.role = user.role
-            return token
+            if (user) {
+                token.role = user.role; // Store role in token
+                token.id = user.id;
+            }
+            return token;
         },
-        // If you want to use the role in client components
-        async session({ session, token }) {
-            if (session?.user) session.user.role = token.role
-            return session
-        },
-    }
+        async session({ session, token }: { session: any; token: { id?: string; role?: string } }) {
+            if (session?.user) {
+                session.user.role = token.role;
+                session.user.id = token.id;
+            }
+            return session;
+        }
+    },
+    session: {
+        strategy: "jwt",
+    },
 }
